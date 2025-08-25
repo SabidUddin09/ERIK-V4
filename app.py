@@ -1,237 +1,168 @@
 import streamlit as st
-import sympy as sp
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import PyPDF2
-import docx
-from googletrans import Translator
 from googlesearch import search
-from scholarly import scholarly
-import random
+import requests
+from bs4 import BeautifulSoup
+import fitz  # PyMuPDF
+import docx
+import sympy as sp
+import matplotlib.pyplot as plt
+import numpy as np
+from textwrap import shorten
+import plotly.graph_objects as go
+from io import BytesIO
+from PyPDF2 import PdfReader
 
-# ------------------------------
-# APP CONFIG
-# ------------------------------
-st.set_page_config(page_title="ERIK", layout="wide")
-st.title("🤖 ERIK: Exceptional Resources & Intelligence Kernel")
-st.caption("🚀 Developed by **Sabid Uddin Nahian**")
-st.info("Welcome to ERIK! Your AI Exam Companion. Ask questions, analyze topics, generate quizzes, solve math, and more!")
+# ------------------ ERIK v4.4 ------------------
+st.set_page_config(page_title="ERIK v4.4 - Advanced Academic AI", layout="wide")
+st.title("🧠 ERIK v4.4 - Exceptional Resources & Intelligence Kernel (AI Academic Assistant)")
 
-translator = Translator()
-
-# ------------------------------
-# SESSION STATE
-# ------------------------------
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-def add_history(q, a):
-    st.session_state.history.append({"q": q, "a": a})
-
-# Sidebar chat history
-st.sidebar.header("💬 Chat History")
-for i, msg in enumerate(st.session_state.history):
-    st.sidebar.write(f"**Q{i+1}:** {msg['q']}")
-    st.sidebar.write(f"**A:** {msg['a']}")
-    st.sidebar.markdown("---")
-
-# ------------------------------
-# MENU
-# ------------------------------
-menu = st.sidebar.selectbox("📌 Choose Feature", [
-    "Doubt Solver", "Topic Analyzer", "Document Upload",
-    "Quiz Generator", "Flashcards", "Math Solver",
-    "Graph Generator (2D)", "3D Diagram Generator",
-    "Research Assistant"
+# ------------------ Sidebar ------------------
+st.sidebar.header("Features")
+mode = st.sidebar.radio("Choose a feature:", [
+    "Ask Question (AI-style)", 
+    "Math Solver", 
+    "Quiz Generator", 
+    "PDF/Text Analyzer", 
+    "Graph Generator",
+    "3D Diagram Generator",
+    "Google Scholar Paper Search & Summary"
 ])
 
-# ------------------------------
-# DOUBT SOLVER (Google-based)
-# ------------------------------
-if menu == "Doubt Solver":
-    st.header("❓ Doubt Solver (Google-based)")
-    query = st.text_area("Enter your question (Bangla/English):")
-    answer_format = st.selectbox("Answer Format", ["Short (≤75 words)", "Long (≤350 words)"], key="doubt_format")
-    
-    if st.button("Solve Doubt"):
-        if query:
-            translated = translator.translate(query, dest="en").text
-            st.write(f"🔎 Searching Google for: **{translated}**")
+# ------------------ Ask Question (AI-style) ------------------
+if mode == "Ask Question (AI-style)":
+    query = st.text_input("Ask anything:")
+    if st.button("Search & Answer"):
+        st.info("Searching Google & generating concise answer...")
+        results = []
+        try:
+            for url in search(query, num_results=5):
+                results.append(url)
+        except:
+            st.error("Error searching Google.")
+        answer = ""
+        for link in results:
             try:
-                results = list(search(translated, num_results=3))
-                answer = " ".join(results)
-                if answer_format.startswith("Short"):
-                    answer = " ".join(answer.split()[:75])
-                else:
-                    answer = " ".join(answer.split()[:350])
-                st.write(answer)
-                add_history(query, answer)
-            except Exception as e:
-                st.error(f"Search error: {e}")
+                r = requests.get(link, timeout=3)
+                soup = BeautifulSoup(r.text, 'html.parser')
+                paragraphs = soup.find_all('p')
+                for p in paragraphs[:2]:
+                    answer += p.get_text() + " "
+            except:
+                continue
+        if answer:
+            concise = shorten(answer, width=600, placeholder="...")
+            st.markdown("**AI-style Answer (Concise Summary):**")
+            st.write(concise)
+            st.markdown("**Top sources:**")
+            for r in results:
+                st.write(f"- {r}")
+        else:
+            st.warning("No answer found. Try rephrasing the question.")
 
-# ------------------------------
-# TOPIC ANALYZER
-# ------------------------------
-elif menu == "Topic Analyzer":
-    st.header("📘 Topic Analyzer")
-    topic_text = st.text_area("Enter topic/text:")
-    if st.button("Analyze Topic"):
-        if topic_text:
-            translated_text = translator.translate(topic_text, dest="en").text
-            words = translated_text.split()
-            summary = " ".join(words[:50]) + "..." if len(words) > 50 else translated_text
-            keywords = list(set([w for w in words if len(w) > 5]))[:8]
-            st.subheader("Summary:")
-            st.write(summary)
-            st.subheader("Keywords:")
-            st.write(", ".join(keywords))
-            st.subheader("Example Questions:")
-            for i, kw in enumerate(keywords):
-                st.write(f"{i+1}. Explain {kw} in short.")
+# ------------------ Math Solver ------------------
+elif mode == "Math Solver":
+    st.subheader("Math Problem Solver")
+    problem = st.text_area("Enter a math problem (symbolic or numeric):")
+    if st.button("Solve"):
+        try:
+            x = sp.symbols('x')
+            solution = sp.solve(problem, x)
+            st.success(f"Solution: {solution}")
+        except Exception as e:
+            st.error(f"Error: {e}")
 
-# ------------------------------
-# DOCUMENT UPLOAD
-# ------------------------------
-elif menu == "Document Upload":
-    st.header("📂 Document Upload")
-    uploaded = st.file_uploader("Upload PDF, DOCX, TXT", type=["pdf", "docx", "txt"])
-    if uploaded:
+# ------------------ Quiz Generator ------------------
+elif mode == "Quiz Generator":
+    st.subheader("Generate Multiple Choice Questions")
+    topic = st.text_input("Enter topic:")
+    num_q = st.number_input("Number of questions:", min_value=1, max_value=20, value=5)
+    if st.button("Generate Quiz"):
+        for i in range(num_q):
+            st.write(f"Q{i+1}: This is a placeholder question about {topic}?")
+            st.write("a) Option A  b) Option B  c) Option C  d) Option D")
+
+# ------------------ PDF/Text Analyzer ------------------
+elif mode == "PDF/Text Analyzer":
+    st.subheader("Upload PDF or DOCX")
+    uploaded_file = st.file_uploader("Choose a file", type=['pdf','docx','txt'])
+    if uploaded_file:
         text = ""
-        if uploaded.type == "application/pdf":
-            reader = PyPDF2.PdfReader(uploaded)
+        if uploaded_file.type == "application/pdf":
+            reader = PdfReader(uploaded_file)
             for page in reader.pages:
-                text += page.extract_text()
-        elif uploaded.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            doc = docx.Document(uploaded)
+                text += page.extract_text() + "\n"
+        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            doc = docx.Document(uploaded_file)
             for para in doc.paragraphs:
                 text += para.text + "\n"
-        elif uploaded.type == "text/plain":
-            text = uploaded.read().decode("utf-8")
-        st.subheader("Extracted Text (preview):")
-        st.write(text[:500] + "...")
+        else:
+            text = str(uploaded_file.read(), "utf-8")
+        st.text_area("Extracted Text", text, height=300)
 
-# ------------------------------
-# QUIZ GENERATOR
-# ------------------------------
-elif menu == "Quiz Generator":
-    st.header("📝 Quiz Generator")
-    quiz_topic = st.text_input("Enter topic for quiz:")
-    num_q = st.slider("Number of Questions:", 3, 10, 5)
-    if st.button("Generate Quiz"):
-        st.subheader("MCQs:")
-        for i in range(num_q):
-            st.write(f"Q{i+1}: Example MCQ on {quiz_topic}?")
-            st.radio("Options:", ["A", "B", "C", "D"], key=f"mcq{i}")
-        st.subheader("Short Questions:")
-        for i in range(num_q):
-            st.write(f"Q{i+1}: Explain {quiz_topic} briefly.")
-        st.subheader("Long Questions:")
-        for i in range(num_q):
-            st.write(f"Q{i+1}: Discuss {quiz_topic} in detail.")
+# ------------------ Graph Generator ------------------
+elif mode == "Graph Generator":
+    st.subheader("Generate 2D Graphs")
+    func_input = st.text_input("Enter function in x (e.g., x**2 + 2*x - 3):")
+    if st.button("Plot Graph"):
+        x = sp.symbols('x')
+        func = sp.sympify(func_input)
+        x_vals = [i for i in range(-10,11)]
+        y_vals = [func.subs(x,i) for i in x_vals]
+        plt.plot(x_vals, y_vals)
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title(f"Graph of {func_input}")
+        st.pyplot(plt)
 
-# ------------------------------
-# FLASHCARDS
-# ------------------------------
-elif menu == "Flashcards":
-    st.header("🎴 Flashcards")
-    flash_topic = st.text_input("Enter topic for flashcards:")
-    num_cards = st.slider("Number of flashcards:", 3, 10, 5)
-    if st.button("Generate Flashcards"):
-        for i in range(1, num_cards+1):
-            st.write(f"**Front:** Concept {i} on {flash_topic}")
-            st.write(f"**Back:** Explanation {i} on {flash_topic}")
+# ------------------ 3D Diagram Generator ------------------
+elif mode == "3D Diagram Generator":
+    st.subheader("Interactive 3D Surface Plot")
+    func_input = st.text_input("Enter function in x and y (e.g., x**2 + y**2):")
+    if st.button("Plot 3D Diagram"):
+        x = sp.symbols('x')
+        y = sp.symbols('y')
+        func = sp.sympify(func_input)
+        X = np.linspace(-10, 10, 50)
+        Y = np.linspace(-10, 10, 50)
+        X, Y = np.meshgrid(X, Y)
+        Z = np.array([[func.subs({x: xi, y: yi}) for xi, yi in zip(X_row, Y_row)] for X_row, Y_row in zip(X, Y)])
+        fig = go.Figure(data=[go.Surface(z=Z, x=X, y=Y)])
+        fig.update_layout(scene=dict(zaxis_title='Z', xaxis_title='X', yaxis_title='Y'))
+        st.plotly_chart(fig)
 
-# ------------------------------
-# MATH SOLVER
-# ------------------------------
-elif menu == "Math Solver":
-    st.header("📐 QuickMath-like Solver")
-    expr_input = st.text_input("Enter math expression (SymPy format):")
-    if st.button("Solve Math"):
+# ------------------ Google Scholar Paper Search & Summary ------------------
+elif mode == "Google Scholar Paper Search & Summary":
+    st.subheader("Search, Download (if open-access) & Summarize Research Papers")
+    topic = st.text_input("Enter research topic or keywords:")
+    if st.button("Search Papers"):
+        query = f"{topic} site:scholar.google.com"
+        papers = []
         try:
-            x, y, z = sp.symbols("x y z")
-            expr = sp.sympify(expr_input)
-            st.subheader("Simplified:")
-            st.latex(sp.latex(sp.simplify(expr)))
-            st.subheader("Derivative:")
-            st.latex(sp.latex(sp.diff(expr)))
-            st.subheader("Integral:")
-            st.latex(sp.latex(sp.integrate(expr)))
-            add_history(expr_input, str(expr))
-        except Exception as e:
-            st.error(f"Math error: {e}")
+            for url in search(query, num_results=5):
+                papers.append(url)
+        except:
+            st.error("Error searching Google Scholar.")
 
-# ------------------------------
-# 2D GRAPH GENERATOR
-# ------------------------------
-elif menu == "Graph Generator (2D)":
-    st.header("📊 2D Graph Generator")
-    func_input = st.text_input("Enter function f(x):")
-    if st.button("Generate Graph"):
-        try:
-            x = sp.Symbol("x")
-            func = sp.lambdify(x, sp.sympify(func_input), "numpy")
-            X = np.linspace(-10, 10, 400)
-            Y = func(X)
-            fig, ax = plt.subplots()
-            ax.plot(X, Y)
-            st.pyplot(fig)
-        except Exception as e:
-            st.error(f"Plot error: {e}")
+        if papers:
+            st.write("Top Research Papers:")
+            for p in papers:
+                st.write(f"- {p}")
+                try:
+                    r = requests.get(p, timeout=5)
+                    soup = BeautifulSoup(r.text, 'html.parser')
+                    abstract = ""
+                    paragraphs = soup.find_all('p')
+                    for par in paragraphs[:5]:
+                        abstract += par.get_text() + " "
+                    st.write("**Summary:**")
+                    st.write(shorten(abstract, width=400, placeholder="..."))
 
-# ------------------------------
-# 3D DIAGRAM GENERATOR
-# ------------------------------
-elif menu == "3D Diagram Generator":
-    st.header("🌐 3D Diagram Generator")
-    f3d_input = st.text_input("Enter function f(x, y):")
-    if st.button("Generate 3D Diagram"):
-        try:
-            x, y = sp.symbols("x y")
-            func = sp.lambdify((x, y), sp.sympify(f3d_input), "numpy")
-            X = np.linspace(-5, 5, 50)
-            Y = np.linspace(-5, 5, 50)
-            X, Y = np.meshgrid(X, Y)
-            Z = func(X, Y)
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection="3d")
-            ax.plot_surface(X, Y, Z, cmap="viridis")
-            st.pyplot(fig)
-        except Exception as e:
-            st.error(f"3D plot error: {e}")
-
-# ------------------------------
-# RESEARCH ASSISTANT
-# ------------------------------
-elif menu == "Research Assistant":
-    st.header("🔎 Research Assistant (Google Scholar)")
-    topic = st.text_input("Enter research topic:")
-    answer_format = st.selectbox("Answer Format", ["Short (≤75 words)", "Long (≤350 words)"], key="research_format")
-    if st.button("Search Research"):
-        try:
-            search_query = scholarly.search_pubs(topic)
-            results_text = ""
-            st.write("### Top 3 Papers:")
-            for i in range(3):
-                pub = next(search_query)
-                st.markdown(f"**{pub['bib']['title']}**")
-                st.write(f"Authors: {pub['bib'].get('author','N/A')}")
-                st.write(f"Year: {pub['bib'].get('pub_year','N/A')}")
-                st.write(f"Abstract: {pub['bib'].get('abstract','No abstract')}")
-                if 'eprint_url' in pub:
-                    st.write(f"[Read Paper]({pub['eprint_url']})")
-                results_text += pub['bib'].get('abstract','') + " "
-            if answer_format.startswith("Short"):
-                results_text = " ".join(results_text.split()[:75])
-            else:
-                results_text = " ".join(results_text.split()[:350])
-            add_history(topic, results_text)
-        except Exception as e:
-            st.error(f"Research error: {e}")
-
-# ------------------------------
-# FOOTER
-# ------------------------------
-st.markdown("<hr>", unsafe_allow_html=True)
-st.caption("🚀 Developed by **Sabid Uddin Nahian**")
+                    # Optional: Attempt PDF download
+                    pdf_link = soup.find('a', href=True, text=lambda t: t and 'PDF' in t)
+                    if pdf_link:
+                        pdf_url = pdf_link['href']
+                        st.write(f"[Download PDF]({pdf_url})")
+                except:
+                    st.write("Summary/PDF not available.")
+        else:
+            st.warning("No papers found.")
