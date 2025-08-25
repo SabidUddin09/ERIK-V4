@@ -39,6 +39,7 @@ if mode == "Ask Question (AI-style)":
                 results.append(url)
         except:
             st.error("Error searching Google.")
+
         answer = ""
         for link in results:
             try:
@@ -157,7 +158,6 @@ elif mode == "Google Scholar Paper Search & Summary":
                     st.write("**Summary:**")
                     st.write(shorten(abstract, width=400, placeholder="..."))
 
-                    # Optional: Attempt PDF download
                     pdf_link = soup.find('a', href=True, text=lambda t: t and 'PDF' in t)
                     if pdf_link:
                         pdf_url = pdf_link['href']
