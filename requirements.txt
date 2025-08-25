@@ -1,0 +1,9 @@
+streamlit
+sympy
+numpy
+matplotlib
+PyPDF2
+python-docx
+googletrans==4.0.0-rc1
+googlesearch-python
+scholarly
