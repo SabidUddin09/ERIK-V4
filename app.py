@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from textwrap import shorten
 import plotly.graph_objects as go
-from io import BytesIO
 from PyPDF2 import PdfReader
 
 # ------------------ ERIK v4.4 ------------------
@@ -28,7 +27,7 @@ mode = st.sidebar.radio("Choose a feature:", [
     "Google Scholar Paper Search & Summary"
 ])
 
-# ------------------ Ask Question (AI-style) ------------------
+# ------------------ Ask Question ------------------
 if mode == "Ask Question (AI-style)":
     query = st.text_input("Ask anything:")
     if st.button("Search & Answer"):
@@ -39,7 +38,6 @@ if mode == "Ask Question (AI-style)":
                 results.append(url)
         except:
             st.error("Error searching Google.")
-
         answer = ""
         for link in results:
             try:
@@ -107,8 +105,8 @@ elif mode == "Graph Generator":
     if st.button("Plot Graph"):
         x = sp.symbols('x')
         func = sp.sympify(func_input)
-        x_vals = [i for i in range(-10,11)]
-        y_vals = [func.subs(x,i) for i in x_vals]
+        x_vals = np.arange(-10, 11, 1)
+        y_vals = np.array([func.subs(x,i) for i in x_vals], dtype=float)
         plt.plot(x_vals, y_vals)
         plt.xlabel("x")
         plt.ylabel("y")
@@ -120,13 +118,12 @@ elif mode == "3D Diagram Generator":
     st.subheader("Interactive 3D Surface Plot")
     func_input = st.text_input("Enter function in x and y (e.g., x**2 + y**2):")
     if st.button("Plot 3D Diagram"):
-        x = sp.symbols('x')
-        y = sp.symbols('y')
+        x, y = sp.symbols('x y')
         func = sp.sympify(func_input)
         X = np.linspace(-10, 10, 50)
         Y = np.linspace(-10, 10, 50)
         X, Y = np.meshgrid(X, Y)
-        Z = np.array([[func.subs({x: xi, y: yi}) for xi, yi in zip(X_row, Y_row)] for X_row, Y_row in zip(X, Y)])
+        Z = np.array([[float(func.subs({x: xi, y: yi})) for xi, yi in zip(X_row, Y_row)] for X_row, Y_row in zip(X, Y)])
         fig = go.Figure(data=[go.Surface(z=Z, x=X, y=Y)])
         fig.update_layout(scene=dict(zaxis_title='Z', xaxis_title='X', yaxis_title='Y'))
         st.plotly_chart(fig)
@@ -143,7 +140,6 @@ elif mode == "Google Scholar Paper Search & Summary":
                 papers.append(url)
         except:
             st.error("Error searching Google Scholar.")
-
         if papers:
             st.write("Top Research Papers:")
             for p in papers:
