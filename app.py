@@ -6,52 +6,45 @@ import fitz  # PyMuPDF
 import docx
 import sympy as sp
 import matplotlib.pyplot as plt
-import numpy as np
-from textwrap import shorten
-import plotly.graph_objects as go
-from PyPDF2 import PdfReader
+import io
+import random
+from pytube import YouTube
 
-# ------------------ ERIK v4.4 ------------------
-st.set_page_config(page_title="ERIK v4.4 - Advanced Academic AI", layout="wide")
-st.title("🧠 ERIK v4.4 - Exceptional Resources & Intelligence Kernel (AI Academic Assistant)")
+# ------------------ ERIK v4 ------------------
+st.set_page_config(page_title="ERIK v4 - AI Academic Assistant", layout="wide")
+
+st.title("🧠 ERIK v4 - Exceptional Resources & Intelligence Kernel")
 
 # ------------------ Sidebar ------------------
 st.sidebar.header("Features")
-mode = st.sidebar.radio("Choose a feature:", [
-    "Ask Question (AI-style)", 
-    "Math Solver", 
-    "Quiz Generator", 
-    "PDF/Text Analyzer", 
-    "Graph Generator",
-    "3D Diagram Generator",
-    "Google Scholar Paper Search & Summary"
-])
+mode = st.sidebar.radio("Choose a feature:", ["Ask Question", "Math Solver", "Quiz Generator", "PDF/Text Analyzer", "YouTube Class Search", "Graph Generator"])
 
 # ------------------ Ask Question ------------------
-if mode == "Ask Question (AI-style)":
+if mode == "Ask Question":
     query = st.text_input("Ask anything:")
     if st.button("Search & Answer"):
-        st.info("Searching Google & generating concise answer...")
+        st.info("Searching Google and generating answer...")
         results = []
         try:
             for url in search(query, num_results=5):
                 results.append(url)
         except:
             st.error("Error searching Google.")
+        
         answer = ""
         for link in results:
             try:
                 r = requests.get(link, timeout=3)
                 soup = BeautifulSoup(r.text, 'html.parser')
                 paragraphs = soup.find_all('p')
-                for p in paragraphs[:2]:
-                    answer += p.get_text() + " "
+                for p in paragraphs[:3]:
+                    answer += p.get_text() + "\n"
             except:
                 continue
+        
         if answer:
-            concise = shorten(answer, width=600, placeholder="...")
-            st.markdown("**AI-style Answer (Concise Summary):**")
-            st.write(concise)
+            st.markdown("**Answer from web sources:**")
+            st.write(answer)
             st.markdown("**Top sources:**")
             for r in results:
                 st.write(f"- {r}")
@@ -87,9 +80,9 @@ elif mode == "PDF/Text Analyzer":
     if uploaded_file:
         text = ""
         if uploaded_file.type == "application/pdf":
-            reader = PdfReader(uploaded_file)
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
+            doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+            for page in doc:
+                text += page.get_text()
         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
             doc = docx.Document(uploaded_file)
             for para in doc.paragraphs:
@@ -98,6 +91,23 @@ elif mode == "PDF/Text Analyzer":
             text = str(uploaded_file.read(), "utf-8")
         st.text_area("Extracted Text", text, height=300)
 
+# ------------------ YouTube Class Search ------------------
+elif mode == "YouTube Class Search":
+    st.subheader("Search YouTube Classes")
+    keyword = st.text_input("Enter topic or class:")
+    if st.button("Search YouTube"):
+        st.info("Fetching top videos...")
+        query = f"{keyword} site:youtube.com"
+        links = []
+        try:
+            for url in search(query, num_results=5):
+                links.append(url)
+        except:
+            st.error("Error searching YouTube.")
+        st.write("Top Results:")
+        for l in links:
+            st.write(l)
+
 # ------------------ Graph Generator ------------------
 elif mode == "Graph Generator":
     st.subheader("Generate 2D Graphs")
@@ -105,60 +115,10 @@ elif mode == "Graph Generator":
     if st.button("Plot Graph"):
         x = sp.symbols('x')
         func = sp.sympify(func_input)
-        x_vals = np.arange(-10, 11, 1)
-        y_vals = np.array([func.subs(x,i) for i in x_vals], dtype=float)
+        x_vals = [i for i in range(-10,11)]
+        y_vals = [func.subs(x,i) for i in x_vals]
         plt.plot(x_vals, y_vals)
         plt.xlabel("x")
         plt.ylabel("y")
         plt.title(f"Graph of {func_input}")
         st.pyplot(plt)
-
-# ------------------ 3D Diagram Generator ------------------
-elif mode == "3D Diagram Generator":
-    st.subheader("Interactive 3D Surface Plot")
-    func_input = st.text_input("Enter function in x and y (e.g., x**2 + y**2):")
-    if st.button("Plot 3D Diagram"):
-        x, y = sp.symbols('x y')
-        func = sp.sympify(func_input)
-        X = np.linspace(-10, 10, 50)
-        Y = np.linspace(-10, 10, 50)
-        X, Y = np.meshgrid(X, Y)
-        Z = np.array([[float(func.subs({x: xi, y: yi})) for xi, yi in zip(X_row, Y_row)] for X_row, Y_row in zip(X, Y)])
-        fig = go.Figure(data=[go.Surface(z=Z, x=X, y=Y)])
-        fig.update_layout(scene=dict(zaxis_title='Z', xaxis_title='X', yaxis_title='Y'))
-        st.plotly_chart(fig)
-
-# ------------------ Google Scholar Paper Search & Summary ------------------
-elif mode == "Google Scholar Paper Search & Summary":
-    st.subheader("Search, Download (if open-access) & Summarize Research Papers")
-    topic = st.text_input("Enter research topic or keywords:")
-    if st.button("Search Papers"):
-        query = f"{topic} site:scholar.google.com"
-        papers = []
-        try:
-            for url in search(query, num_results=5):
-                papers.append(url)
-        except:
-            st.error("Error searching Google Scholar.")
-        if papers:
-            st.write("Top Research Papers:")
-            for p in papers:
-                st.write(f"- {p}")
-                try:
-                    r = requests.get(p, timeout=5)
-                    soup = BeautifulSoup(r.text, 'html.parser')
-                    abstract = ""
-                    paragraphs = soup.find_all('p')
-                    for par in paragraphs[:5]:
-                        abstract += par.get_text() + " "
-                    st.write("**Summary:**")
-                    st.write(shorten(abstract, width=400, placeholder="..."))
-
-                    pdf_link = soup.find('a', href=True, text=lambda t: t and 'PDF' in t)
-                    if pdf_link:
-                        pdf_url = pdf_link['href']
-                        st.write(f"[Download PDF]({pdf_url})")
-                except:
-                    st.write("Summary/PDF not available.")
-        else:
-            st.warning("No papers found.")
