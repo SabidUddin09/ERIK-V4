@@ -6,6 +6,6 @@ PyMuPDF>=1.22.0
 python-docx>=0.8.11
 sympy>=1.12
 matplotlib>=3.7.0
-numpy>=1.25.2,<1.27
+numpy>=1.25.2,<1.26
 plotly>=5.15.0
 PyPDF2>=3.1.0
